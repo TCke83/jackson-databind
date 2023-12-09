@@ -23,7 +23,7 @@ import static com.fasterxml.jackson.annotation.JsonTypeInfo.Id.DEDUCTION;
 public class TestPolymorphicDeduction extends BaseMapTest {
 
   @JsonTypeInfo(use = DEDUCTION)
-  @JsonSubTypes( {@Type(LiveCat.class), @Type(DeadCat.class), @Type(Fleabag.class)})
+  @JsonSubTypes( {@Type(Cat.class), @Type(LiveCat.class), @Type(DeadCat.class), @Type(Fleabag.class)})
   // A general supertype with no properties - used for tests involving {}
   interface Feline {}
 
@@ -72,6 +72,7 @@ public class TestPolymorphicDeduction extends BaseMapTest {
   private static final String deadCatJson = a2q("{'name':'Felix','causeOfDeath':'entropy'}");
   private static final String liveCatJson = a2q("{'name':'Felix','angry':true}");
   private static final String luckyCatJson = a2q("{'name':'Felix','angry':true,'lives':8}");
+  private static final String catJson = a2q("{'name':'Felix'}");
   private static final String ambiguousCatJson = a2q("{'name':'Felix','age':2}");
   private static final String fleabagJson = a2q("{}");
   private static final String box1Json = a2q("{'feline':" + liveCatJson + "}");
@@ -102,6 +103,10 @@ public class TestPolymorphicDeduction extends BaseMapTest {
     assertSame(cat.getClass(), DeadCat.class);
     assertEquals("Felix", cat.name);
     assertEquals("entropy", ((DeadCat)cat).causeOfDeath);
+
+    cat = MAPPER.readValue(catJson, Cat.class);
+    assertSame(cat.getClass(), Cat.class);
+    assertEquals("Felix", cat.name);
   }
 
   public void testSimpleInferenceOfEmptySubtype() throws Exception {

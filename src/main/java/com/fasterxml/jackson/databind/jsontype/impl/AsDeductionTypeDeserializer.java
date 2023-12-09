@@ -126,6 +126,9 @@ public class AsDeductionTypeDeserializer extends AsPropertyTypeDeserializer
         final TokenBuffer tb = ctxt.bufferForInputBuffering(p);
         boolean ignoreCase = ctxt.isEnabled(MapperFeature.ACCEPT_CASE_INSENSITIVE_PROPERTIES);
 
+        // Keep track of found tokens
+        BitSet bitSet = new BitSet();
+
         for (; t == JsonToken.FIELD_NAME; t = p.nextToken()) {
             String name = p.currentName();
             if (ignoreCase) name = name.toLowerCase();
@@ -136,13 +139,25 @@ public class AsDeductionTypeDeserializer extends AsPropertyTypeDeserializer
             if (bit != null) {
                 // field is known by at least one subtype
                 prune(candidates, bit);
+                bitSet.set(bit);
                 if (candidates.size() == 1) {
                     return _deserializeTypedForId(p, ctxt, tb, subtypeFingerprints.get(candidates.get(0)));
                 }
+            } else {
+                String msgToReportIfDefaultImplFailsToo = String.format("Cannot deduce unique subtype of %s (0 candidates match)", ClassUtil.getTypeDescription(_baseType));
+                return _deserializeTypedUsingDefaultImpl(p, ctxt, tb, msgToReportIfDefaultImplFailsToo);
             }
         }
 
-        // We have zero or multiple candidates, deduction has failed
+        // Check if there is one exact match
+        if (candidates.size() > 1) {
+            prune(candidates, bitSet);
+            if (candidates.size() == 1) {
+                return _deserializeTypedForId(p, ctxt, tb, subtypeFingerprints.get(candidates.get(0)));
+            }
+        }
+
+        // We multiple candidates, deduction has failed
         String msgToReportIfDefaultImplFailsToo = String.format("Cannot deduce unique subtype of %s (%d candidates match)", ClassUtil.getTypeDescription(_baseType), candidates.size());
         return _deserializeTypedUsingDefaultImpl(p, ctxt, tb, msgToReportIfDefaultImplFailsToo);
     }
@@ -151,6 +166,15 @@ public class AsDeductionTypeDeserializer extends AsPropertyTypeDeserializer
     private static void prune(List<BitSet> candidates, int bit) {
         for (Iterator<BitSet> iter = candidates.iterator(); iter.hasNext(); ) {
             if (!iter.next().get(bit)) {
+                iter.remove();
+            }
+        }
+    }
+
+    // Keep only fingerprints that are an exact match
+    private static void prune(List<BitSet> candidates, BitSet bitSet) {
+        for (Iterator<BitSet> iter = candidates.iterator(); iter.hasNext(); ) {
+            if (!iter.next().equals(bitSet)) {
                 iter.remove();
             }
         }
